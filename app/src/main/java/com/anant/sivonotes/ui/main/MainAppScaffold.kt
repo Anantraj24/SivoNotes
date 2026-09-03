@@ -275,11 +275,86 @@ fun MainAppScaffold() {
                 )
             }
 
-            // Vault Placeholder (Configured in Phase 5)
+            // Vault Screens
             composable(Screen.VaultLocked.route) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Configured in Phase 5
-                }
+                val vaultViewModel: com.anant.sivonotes.ui.vault.VaultViewModel = viewModel(
+                    factory = com.anant.sivonotes.ui.vault.VaultViewModel.provideFactory(
+                        vaultRepository = container.vaultRepository,
+                        vaultManager = container.vaultManager
+                    )
+                )
+                com.anant.sivonotes.ui.vault.VaultLockedScreen(
+                    viewModel = vaultViewModel,
+                    onUnlocked = {
+                        navController.navigate(Screen.VaultHome.route) {
+                            popUpTo(Screen.VaultLocked.route) { inclusive = true }
+                        }
+                    },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.VaultHome.route) {
+                val vaultViewModel: com.anant.sivonotes.ui.vault.VaultViewModel = viewModel(
+                    factory = com.anant.sivonotes.ui.vault.VaultViewModel.provideFactory(
+                        vaultRepository = container.vaultRepository,
+                        vaultManager = container.vaultManager
+                    )
+                )
+                com.anant.sivonotes.ui.vault.VaultHomeScreen(
+                    viewModel = vaultViewModel,
+                    onBack = { navController.popBackStack() },
+                    onAddPassword = { navController.navigate(Screen.VaultPasswordEditor.createRoute(-1L)) },
+                    onEditPassword = { entryId -> navController.navigate(Screen.VaultPasswordEditor.createRoute(entryId)) },
+                    onAddPrivateNote = { navController.navigate(Screen.VaultNoteEditor.createRoute(-1L)) },
+                    onEditPrivateNote = { noteId -> navController.navigate(Screen.VaultNoteEditor.createRoute(noteId)) }
+                )
+            }
+
+            composable(
+                route = Screen.VaultPasswordEditor.route,
+                arguments = listOf(
+                    navArgument("entryId") {
+                        type = NavType.StringType
+                        defaultValue = "-1"
+                    }
+                )
+            ) { backStackEntry ->
+                val entryId = backStackEntry.arguments?.getString("entryId")?.toLongOrNull()?.takeIf { it > 0 } ?: -1L
+                val vaultViewModel: com.anant.sivonotes.ui.vault.VaultViewModel = viewModel(
+                    factory = com.anant.sivonotes.ui.vault.VaultViewModel.provideFactory(
+                        vaultRepository = container.vaultRepository,
+                        vaultManager = container.vaultManager
+                    )
+                )
+                com.anant.sivonotes.ui.vault.editor.VaultPasswordEditorScreen(
+                    entryId = entryId,
+                    viewModel = vaultViewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                route = Screen.VaultNoteEditor.route,
+                arguments = listOf(
+                    navArgument("noteId") {
+                        type = NavType.StringType
+                        defaultValue = "-1"
+                    }
+                )
+            ) { backStackEntry ->
+                val noteId = backStackEntry.arguments?.getString("noteId")?.toLongOrNull()?.takeIf { it > 0 } ?: -1L
+                val vaultViewModel: com.anant.sivonotes.ui.vault.VaultViewModel = viewModel(
+                    factory = com.anant.sivonotes.ui.vault.VaultViewModel.provideFactory(
+                        vaultRepository = container.vaultRepository,
+                        vaultManager = container.vaultManager
+                    )
+                )
+                com.anant.sivonotes.ui.vault.editor.VaultNoteEditorScreen(
+                    noteId = noteId,
+                    viewModel = vaultViewModel,
+                    onBack = { navController.popBackStack() }
+                )
             }
 
             // Settings Placeholder (Configured in Phase 6)

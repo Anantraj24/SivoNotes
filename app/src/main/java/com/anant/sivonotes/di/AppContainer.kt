@@ -38,4 +38,8 @@ class AppContainer(private val context: Context) {
     val vaultRepository: VaultRepository by lazy {
         VaultRepository(database.vaultDao(), context)
     }
+
+    val vaultManager: com.anant.sivonotes.security.VaultManager by lazy {
+        com.anant.sivonotes.security.VaultManager(context)
+    }
 }
