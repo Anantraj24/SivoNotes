@@ -1,5 +1,6 @@
 package com.anant.sivonotes.ui.main
 
+import android.content.Context
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,7 @@ import com.anant.sivonotes.ui.notes.NotesScreen
 import com.anant.sivonotes.ui.notes.NotesViewModel
 import com.anant.sivonotes.ui.notes.editor.NoteEditorScreen
 import com.anant.sivonotes.ui.notes.editor.NoteEditorViewModel
+import com.anant.sivonotes.ui.onboarding.OnboardingScreen
 import com.anant.sivonotes.ui.points.ImportantPointsScreen
 import com.anant.sivonotes.ui.points.ImportantPointsViewModel
 import com.anant.sivonotes.ui.reminders.RemindersScreen
@@ -41,6 +43,8 @@ import com.anant.sivonotes.ui.reminders.RemindersViewModel
 import com.anant.sivonotes.ui.reminders.components.CreateReminderDialog
 import com.anant.sivonotes.ui.search.SearchScreen
 import com.anant.sivonotes.ui.search.SearchViewModel
+import com.anant.sivonotes.ui.settings.SettingsScreen
+import com.anant.sivonotes.ui.settings.SettingsViewModel
 import com.anant.sivonotes.ui.streak.StreakProgressScreen
 import com.anant.sivonotes.ui.streak.StreakProgressViewModel
 import com.anant.sivonotes.ui.todos.TodosScreen
@@ -56,6 +60,10 @@ fun MainAppScaffold() {
     val context = LocalContext.current
     val app = context.applicationContext as SivoNotesApplication
     val container = app.container
+
+    val prefs = remember { context.getSharedPreferences("sivo_settings_prefs", Context.MODE_PRIVATE) }
+    val isFirstLaunchCompleted = remember { prefs.getBoolean(SettingsViewModel.KEY_FIRST_LAUNCH_COMPLETED, false) }
+    val startDest = if (isFirstLaunchCompleted) Screen.Home.route else Screen.Onboarding.route
 
     var showUniversalAddSheet by remember { mutableStateOf(false) }
     var showQuickTodoDialog by remember { mutableStateOf(false) }
@@ -74,13 +82,25 @@ fun MainAppScaffold() {
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = startDest,
             enterTransition = { fadeIn() },
             exitTransition = { fadeOut() },
             popEnterTransition = { fadeIn() },
             popExitTransition = { fadeOut() },
             modifier = Modifier.fillMaxSize()
         ) {
+            // Onboarding Walkthrough
+            composable(Screen.Onboarding.route) {
+                OnboardingScreen(
+                    onComplete = {
+                        prefs.edit().putBoolean(SettingsViewModel.KEY_FIRST_LAUNCH_COMPLETED, true).apply()
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Onboarding.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             // Home Dashboard
             composable(Screen.Home.route) {
                 val homeViewModel: HomeViewModel = viewModel(
@@ -357,11 +377,22 @@ fun MainAppScaffold() {
                 )
             }
 
-            // Settings Placeholder (Configured in Phase 6)
+            // Settings Screen
             composable(Screen.Settings.route) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Configured in Phase 6
-                }
+                val settingsViewModel: SettingsViewModel = viewModel(
+                    factory = SettingsViewModel.provideFactory(
+                        context = context,
+                        vaultManager = container.vaultManager,
+                        backupRestoreManager = container.backupRestoreManager,
+                        notesRepository = container.notesRepository,
+                        todosRepository = container.todosRepository,
+                        pointsRepository = container.importantPointsRepository
+                    )
+                )
+                SettingsScreen(
+                    viewModel = settingsViewModel,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
 

@@ -42,4 +42,8 @@ class AppContainer(private val context: Context) {
     val vaultManager: com.anant.sivonotes.security.VaultManager by lazy {
         com.anant.sivonotes.security.VaultManager(context)
     }
+
+    val backupRestoreManager: com.anant.sivonotes.backup.BackupRestoreManager by lazy {
+        com.anant.sivonotes.backup.BackupRestoreManager(context, database)
+    }
 }

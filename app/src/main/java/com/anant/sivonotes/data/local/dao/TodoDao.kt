@@ -14,6 +14,9 @@ interface TodoDao {
     @Query("SELECT * FROM todos ORDER BY isCompleted ASC, dueDate ASC, createdAt DESC")
     fun getAllTodos(): Flow<List<TodoEntity>>
 
+    @Query("SELECT * FROM todos ORDER BY isCompleted ASC, dueDate ASC, createdAt DESC")
+    suspend fun getAllTodosDirect(): List<TodoEntity>
+
     @Query("SELECT * FROM todos WHERE dueDate >= :startOfDay AND dueDate <= :endOfDay ORDER BY isCompleted ASC, createdAt DESC")
     fun getTodayTodos(startOfDay: Long, endOfDay: Long): Flow<List<TodoEntity>>
 

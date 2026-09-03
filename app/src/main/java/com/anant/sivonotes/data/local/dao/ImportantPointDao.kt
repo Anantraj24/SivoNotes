@@ -14,6 +14,9 @@ interface ImportantPointDao {
     @Query("SELECT * FROM important_points ORDER BY isCompleted ASC, createdAt DESC")
     fun getAllPoints(): Flow<List<ImportantPointEntity>>
 
+    @Query("SELECT * FROM important_points ORDER BY isCompleted ASC, createdAt DESC")
+    suspend fun getAllPointsDirect(): List<ImportantPointEntity>
+
     @Query("SELECT * FROM important_points WHERE folderId = :folderId ORDER BY isCompleted ASC, createdAt DESC")
     fun getPointsByFolder(folderId: Long): Flow<List<ImportantPointEntity>>
 

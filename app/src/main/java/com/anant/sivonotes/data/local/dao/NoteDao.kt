@@ -14,6 +14,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes ORDER BY isPinned DESC, updatedAt DESC")
     fun getAllNotes(): Flow<List<NoteEntity>>
 
+    @Query("SELECT * FROM notes ORDER BY isPinned DESC, updatedAt DESC")
+    suspend fun getAllNotesDirect(): List<NoteEntity>
+
     @Query("SELECT * FROM notes WHERE isPinned = 1 ORDER BY updatedAt DESC")
     fun getPinnedNotes(): Flow<List<NoteEntity>>
 

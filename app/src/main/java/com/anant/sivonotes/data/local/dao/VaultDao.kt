@@ -16,6 +16,9 @@ interface VaultDao {
     @Query("SELECT * FROM vault_entries ORDER BY updatedAt DESC")
     fun getAllVaultEntries(): Flow<List<VaultEntryEntity>>
 
+    @Query("SELECT * FROM vault_entries ORDER BY updatedAt DESC")
+    suspend fun getAllVaultEntriesDirect(): List<VaultEntryEntity>
+
     @Query("SELECT * FROM vault_entries WHERE id = :id")
     suspend fun getVaultEntryById(id: Long): VaultEntryEntity?
 
@@ -34,6 +37,9 @@ interface VaultDao {
     // Private Notes
     @Query("SELECT * FROM private_notes ORDER BY updatedAt DESC")
     fun getAllPrivateNotes(): Flow<List<PrivateNoteEntity>>
+
+    @Query("SELECT * FROM private_notes ORDER BY updatedAt DESC")
+    suspend fun getAllPrivateNotesDirect(): List<PrivateNoteEntity>
 
     @Query("SELECT * FROM private_notes WHERE id = :id")
     suspend fun getPrivateNoteById(id: Long): PrivateNoteEntity?

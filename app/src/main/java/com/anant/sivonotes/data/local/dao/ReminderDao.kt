@@ -14,6 +14,9 @@ interface ReminderDao {
     @Query("SELECT * FROM reminders ORDER BY targetTimeMillis ASC")
     fun getAllReminders(): Flow<List<ReminderEntity>>
 
+    @Query("SELECT * FROM reminders ORDER BY targetTimeMillis ASC")
+    suspend fun getAllRemindersDirect(): List<ReminderEntity>
+
     @Query("SELECT * FROM reminders WHERE isCompleted = 0 AND targetTimeMillis >= :currentTimeMillis ORDER BY targetTimeMillis ASC")
     fun getActiveUpcomingReminders(currentTimeMillis: Long): Flow<List<ReminderEntity>>
 
