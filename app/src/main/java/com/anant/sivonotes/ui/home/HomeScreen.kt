@@ -176,35 +176,39 @@ fun HomeScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     QuickActionTile(
                         icon = Icons.Outlined.Description,
                         label = "Notes",
                         count = "${uiState.totalNotesCount}",
                         color = Color(0xFF6C5CE7),
-                        onClick = onNavigateToNotes
+                        onClick = onNavigateToNotes,
+                        modifier = Modifier.weight(1f)
                     )
                     QuickActionTile(
                         icon = Icons.Outlined.CheckBox,
                         label = "Tasks",
                         count = "${uiState.todayTotalCount}",
                         color = Color(0xFF00B894),
-                        onClick = onNavigateToTodos
+                        onClick = onNavigateToTodos,
+                        modifier = Modifier.weight(1f)
                     )
                     QuickActionTile(
                         icon = Icons.Outlined.Star,
                         label = "Points",
                         count = "${uiState.totalPointsCount}",
                         color = Color(0xFFF39C12),
-                        onClick = onNavigateToPoints
+                        onClick = onNavigateToPoints,
+                        modifier = Modifier.weight(1f)
                     )
                     QuickActionTile(
                         icon = Icons.Outlined.Alarm,
                         label = "Reminders",
                         count = if (uiState.nextReminder != null) "1" else "0",
                         color = Color(0xFF0984E3),
-                        onClick = onNavigateToReminders
+                        onClick = onNavigateToReminders,
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
@@ -387,11 +391,11 @@ private fun QuickActionTile(
     label: String,
     count: String,
     color: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier
-            .width(78.dp)
+        modifier = modifier
             .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
         shape = MaterialTheme.shapes.medium,
