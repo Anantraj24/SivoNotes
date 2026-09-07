@@ -1,5 +1,6 @@
 package com.anant.sivonotes.ui.notes.editor
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -84,14 +85,22 @@ fun NoteEditorScreen(
     // TextFieldValue tracks both the content string AND the cursor/selection position.
     // We keep it as local Compose state so the cursor is never reset on each recomposition.
     var contentFieldValue by remember { mutableStateOf(TextFieldValue("")) }
+    var isContentInitialized by remember { mutableStateOf(false) }
 
-    // One-time sync from ViewModel when the note first loads
-    LaunchedEffect(uiState.isLoaded, uiState.noteId) {
-        if (uiState.isLoaded) {
+    // Intercept system back gestures to ensure changes are always saved
+    BackHandler {
+        viewModel.saveNoteDirect()
+        onBack()
+    }
+
+    // One-time sync from ViewModel when the note first loads (prevents cursor jumping during auto-save)
+    LaunchedEffect(uiState.isLoaded) {
+        if (uiState.isLoaded && !isContentInitialized) {
             contentFieldValue = TextFieldValue(
                 text = uiState.content,
                 selection = TextRange(uiState.content.length) // cursor at end
             )
+            isContentInitialized = true
         }
     }
 

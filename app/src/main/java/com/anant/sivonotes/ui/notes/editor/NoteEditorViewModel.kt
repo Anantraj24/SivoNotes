@@ -9,6 +9,8 @@ import com.anant.sivonotes.data.local.entity.FolderEntity
 import com.anant.sivonotes.data.local.entity.NoteEntity
 import com.anant.sivonotes.data.repository.FoldersRepository
 import com.anant.sivonotes.data.repository.NotesRepository
+import com.anant.sivonotes.ui.notes.components.MarkdownFormatType
+import com.anant.sivonotes.ui.notes.components.MarkdownFormatter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,13 +34,7 @@ data class NoteEditorUiState(
 )
 
 /** Formatting modes supported by the toolbar */
-enum class FormatType {
-    BOLD,
-    ITALIC,
-    HEADING,
-    BULLET,
-    CHECKLIST
-}
+typealias FormatType = MarkdownFormatType
 
 class NoteEditorViewModel(
     private val initialNoteId: Long,
@@ -108,188 +104,12 @@ class NoteEditorViewModel(
     }
 
     /**
-     * Apply a formatting action to the current TextFieldValue:
-     * - Inline (BOLD, ITALIC):
-     *   * If text is selected: wrap with markers (or unwrap if already wrapped).
-     *   * If no selection: detect word under/adjacent to cursor and wrap/unwrap it.
-     *   * If empty space: insert marker pair and place cursor inside.
-     * - Block (HEADING, BULLET, CHECKLIST):
-     *   * Toggle or cycle the line prefix at the current line start.
+     * Apply a formatting action to the current TextFieldValue using [MarkdownFormatter].
      */
     fun applyFormatting(current: TextFieldValue, type: FormatType): TextFieldValue {
-        val text = current.text
-        val selMin = current.selection.min.coerceIn(0, text.length)
-        val selMax = current.selection.max.coerceIn(0, text.length)
-        val hasSelection = selMin != selMax
-
-        return when (type) {
-            FormatType.BOLD -> applyInlineFormat(text, selMin, selMax, hasSelection, "**")
-            FormatType.ITALIC -> applyInlineFormat(text, selMin, selMax, hasSelection, "*")
-            FormatType.HEADING -> toggleLineHeading(text, selMin)
-            FormatType.BULLET -> toggleLinePrefix(text, selMin, "• ")
-            FormatType.CHECKLIST -> toggleChecklist(text, selMin)
-        }.also { newValue ->
+        return MarkdownFormatter.applyFormatting(current, type).also { newValue ->
             onContentChange(newValue.text)
         }
-    }
-
-    // ── Inline & Block Formatting Helpers ──────────────────────────────────────
-
-    private fun applyInlineFormat(
-        text: String,
-        selMin: Int,
-        selMax: Int,
-        hasSelection: Boolean,
-        marker: String
-    ): TextFieldValue {
-        val markerLen = marker.length
-
-        if (hasSelection) {
-            val selected = text.substring(selMin, selMax)
-            // Check if selection already starts and ends with marker
-            if (selected.startsWith(marker) && selected.endsWith(marker) && selected.length >= markerLen * 2) {
-                // Unwrap inside selection
-                val unwrapped = selected.substring(markerLen, selected.length - markerLen)
-                val newText = text.substring(0, selMin) + unwrapped + text.substring(selMax)
-                return TextFieldValue(newText, TextRange(selMin, selMin + unwrapped.length))
-            }
-            // Check if markers surround the selection externally
-            if (selMin >= markerLen && selMax + markerLen <= text.length &&
-                text.substring(selMin - markerLen, selMin) == marker &&
-                text.substring(selMax, selMax + markerLen) == marker
-            ) {
-                // Unwrap external markers
-                val newText = text.substring(0, selMin - markerLen) + selected + text.substring(selMax + markerLen)
-                val newStart = selMin - markerLen
-                return TextFieldValue(newText, TextRange(newStart, newStart + selected.length))
-            }
-
-            // Wrap selection
-            val newText = text.substring(0, selMin) + marker + selected + marker + text.substring(selMax)
-            val newCursor = selMax + markerLen * 2
-            return TextFieldValue(newText, TextRange(newCursor))
-        } else {
-            // No selection: check word under / right before cursor
-            val cursorPos = selMin
-            val (wordStart, wordEnd) = findWordBounds(text, cursorPos)
-            if (wordStart < wordEnd) {
-                val word = text.substring(wordStart, wordEnd)
-                // Check if word is already wrapped with marker
-                if (wordStart >= markerLen && wordEnd + markerLen <= text.length &&
-                    text.substring(wordStart - markerLen, wordStart) == marker &&
-                    text.substring(wordEnd, wordEnd + markerLen) == marker
-                ) {
-                    // Unwrap word
-                    val newText = text.substring(0, wordStart - markerLen) + word + text.substring(wordEnd + markerLen)
-                    val newCursor = (cursorPos - markerLen).coerceIn(wordStart - markerLen, wordStart - markerLen + word.length)
-                    return TextFieldValue(newText, TextRange(newCursor))
-                } else {
-                    // Wrap word
-                    val newText = text.substring(0, wordStart) + marker + word + marker + text.substring(wordEnd)
-                    val newCursor = wordEnd + markerLen * 2
-                    return TextFieldValue(newText, TextRange(newCursor))
-                }
-            } else {
-                // Empty space or at boundary — insert marker pair and place cursor between them
-                val newText = text.substring(0, cursorPos) + marker + marker + text.substring(cursorPos)
-                val newCursor = cursorPos + markerLen
-                return TextFieldValue(newText, TextRange(newCursor))
-            }
-        }
-    }
-
-    private fun findWordBounds(text: String, cursorPos: Int): Pair<Int, Int> {
-        if (text.isEmpty()) return Pair(0, 0)
-
-        // Locate character of the word
-        val checkPos = when {
-            cursorPos > 0 && !text[cursorPos - 1].isWhitespace() && text[cursorPos - 1] != '*' && text[cursorPos - 1] != '#' -> cursorPos - 1
-            cursorPos < text.length && !text[cursorPos].isWhitespace() && text[cursorPos] != '*' && text[cursorPos] != '#' -> cursorPos
-            else -> return Pair(cursorPos, cursorPos)
-        }
-
-        var start = checkPos
-        while (start > 0 && !text[start - 1].isWhitespace() && text[start - 1] != '*' && text[start - 1] != '#' && text[start - 1] != '~') {
-            start--
-        }
-
-        var end = checkPos + 1
-        while (end < text.length && !text[end].isWhitespace() && text[end] != '*' && text[end] != '#' && text[end] != '~') {
-            end++
-        }
-
-        return Pair(start, end)
-    }
-
-    private fun toggleLineHeading(text: String, cursorPos: Int): TextFieldValue {
-        val lineStart = text.lastIndexOf('\n', (cursorPos - 1).coerceAtLeast(0)).let {
-            if (it == -1) 0 else it + 1
-        }
-        val lineEnd = text.indexOf('\n', cursorPos).let {
-            if (it == -1) text.length else it
-        }
-        val line = text.substring(lineStart, lineEnd)
-
-        val (newLine, delta) = when {
-            line.startsWith("### ") -> Pair(line.removePrefix("### "), -4)
-            line.startsWith("## ") -> Pair("### " + line.removePrefix("## "), 1)
-            line.startsWith("# ") -> Pair("## " + line.removePrefix("# "), 1)
-            else -> {
-                val cleanLine = line.removePrefix("• ").removePrefix("- ").removePrefix("☐ ").removePrefix("☑ ")
-                val diff = cleanLine.length - line.length
-                Pair("## $cleanLine", 3 + diff)
-            }
-        }
-
-        val newText = text.substring(0, lineStart) + newLine + text.substring(lineEnd)
-        val newCursor = (cursorPos + delta).coerceIn(lineStart, lineStart + newLine.length)
-        return TextFieldValue(newText, TextRange(newCursor))
-    }
-
-    private fun toggleLinePrefix(text: String, cursorPos: Int, prefix: String): TextFieldValue {
-        val lineStart = text.lastIndexOf('\n', (cursorPos - 1).coerceAtLeast(0)).let {
-            if (it == -1) 0 else it + 1
-        }
-        val lineEnd = text.indexOf('\n', cursorPos).let {
-            if (it == -1) text.length else it
-        }
-        val line = text.substring(lineStart, lineEnd)
-
-        val (newLine, delta) = if (line.startsWith(prefix)) {
-            Pair(line.removePrefix(prefix), -prefix.length)
-        } else {
-            val cleanLine = line.removePrefix("• ").removePrefix("- ").removePrefix("☐ ").removePrefix("☑ ").removePrefix("## ").removePrefix("### ").removePrefix("# ")
-            val diff = cleanLine.length - line.length
-            Pair(prefix + cleanLine, prefix.length + diff)
-        }
-
-        val newText = text.substring(0, lineStart) + newLine + text.substring(lineEnd)
-        val newCursor = (cursorPos + delta).coerceIn(lineStart, lineStart + newLine.length)
-        return TextFieldValue(newText, TextRange(newCursor))
-    }
-
-    private fun toggleChecklist(text: String, cursorPos: Int): TextFieldValue {
-        val lineStart = text.lastIndexOf('\n', (cursorPos - 1).coerceAtLeast(0)).let {
-            if (it == -1) 0 else it + 1
-        }
-        val lineEnd = text.indexOf('\n', cursorPos).let {
-            if (it == -1) text.length else it
-        }
-        val line = text.substring(lineStart, lineEnd)
-
-        val (newLine, delta) = when {
-            line.startsWith("☐ ") -> Pair("☑ " + line.removePrefix("☐ "), 0)
-            line.startsWith("☑ ") -> Pair(line.removePrefix("☑ "), -2)
-            else -> {
-                val cleanLine = line.removePrefix("• ").removePrefix("- ").removePrefix("## ").removePrefix("### ").removePrefix("# ")
-                val diff = cleanLine.length - line.length
-                Pair("☐ " + cleanLine, 2 + diff)
-            }
-        }
-
-        val newText = text.substring(0, lineStart) + newLine + text.substring(lineEnd)
-        val newCursor = (cursorPos + delta).coerceIn(lineStart, lineStart + newLine.length)
-        return TextFieldValue(newText, TextRange(newCursor))
     }
 
     // ── Persistence ────────────────────────────────────────────────────────────
