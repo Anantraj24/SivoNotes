@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -146,10 +147,14 @@ fun NoteCard(
 
             // Note Content preview
             if (note.content.isNotBlank()) {
+                val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+                val previewText = remember(note.content, onSurfaceVariant) {
+                    parseMarkdownForPreview(note.content, onSurfaceVariant)
+                }
                 Text(
-                    text = note.content,
+                    text = previewText,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = onSurfaceVariant,
                     maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
                     lineHeight = 20.sp

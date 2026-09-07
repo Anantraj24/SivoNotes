@@ -56,12 +56,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.anant.sivonotes.data.local.entity.FolderEntity
 import com.anant.sivonotes.ui.components.CategoryHelpers
 import com.anant.sivonotes.ui.notes.components.FormattingToolbar
+import com.anant.sivonotes.ui.notes.components.MarkdownVisualTransformation
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -78,14 +81,35 @@ fun NoteEditorScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var newTagInput by remember { mutableStateOf("") }
 
-    LaunchedEffect(uiState.isDeleted) {
-        if (uiState.isDeleted) {
-            onBack()
+    // TextFieldValue tracks both the content string AND the cursor/selection position.
+    // We keep it as local Compose state so the cursor is never reset on each recomposition.
+    var contentFieldValue by remember { mutableStateOf(TextFieldValue("")) }
+
+    // One-time sync from ViewModel when the note first loads
+    LaunchedEffect(uiState.isLoaded, uiState.noteId) {
+        if (uiState.isLoaded) {
+            contentFieldValue = TextFieldValue(
+                text = uiState.content,
+                selection = TextRange(uiState.content.length) // cursor at end
+            )
         }
+    }
+
+    LaunchedEffect(uiState.isDeleted) {
+        if (uiState.isDeleted) onBack()
     }
 
     val selectedFolder = allFolders.find { it.id == uiState.folderId }
     val folderColor = CategoryHelpers.parseColor(selectedFolder?.colorHex)
+
+    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val markdownTransformation = remember(onSurfaceColor, primaryColor) {
+        MarkdownVisualTransformation(
+            onSurfaceColor = onSurfaceColor,
+            primaryColor = primaryColor
+        )
+    }
 
     Column(
         modifier = modifier
@@ -94,7 +118,7 @@ fun NoteEditorScreen(
             .statusBarsPadding()
             .imePadding()
     ) {
-        // Top Navigation & Actions Bar
+        // ── Top Navigation & Actions Bar ───────────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -141,7 +165,6 @@ fun NoteEditorScreen(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Folder button
                 IconButton(onClick = { showFolderSheet = true }) {
                     Icon(
                         imageVector = if (selectedFolder != null) Icons.Outlined.FolderOpen else Icons.Outlined.Folder,
@@ -150,7 +173,6 @@ fun NoteEditorScreen(
                     )
                 }
 
-                // Pin toggle
                 IconButton(onClick = { viewModel.togglePin() }) {
                     Icon(
                         imageVector = if (uiState.isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
@@ -159,7 +181,6 @@ fun NoteEditorScreen(
                     )
                 }
 
-                // Delete button
                 if (uiState.noteId > 0) {
                     IconButton(onClick = { showDeleteConfirmDialog = true }) {
                         Icon(
@@ -172,7 +193,7 @@ fun NoteEditorScreen(
             }
         }
 
-        // Folder & Tags metadata banner
+        // ── Folder & Tags metadata banner ──────────────────────────────────────
         if (selectedFolder != null || uiState.tags.isNotEmpty()) {
             Row(
                 modifier = Modifier
@@ -207,7 +228,6 @@ fun NoteEditorScreen(
                     }
                 }
 
-                // Tags
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -242,7 +262,7 @@ fun NoteEditorScreen(
             }
         }
 
-        // Note Content Scroll Area
+        // ── Note Content Scroll Area ───────────────────────────────────────────
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -252,7 +272,7 @@ fun NoteEditorScreen(
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Title Field
+            // Title Field (plain String — no cursor-format needed)
             TextField(
                 value = uiState.title,
                 onValueChange = { viewModel.onTitleChange(it) },
@@ -279,10 +299,13 @@ fun NoteEditorScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Content Field
+            // Content Field — uses TextFieldValue so we know cursor + selection
             TextField(
-                value = uiState.content,
-                onValueChange = { viewModel.onContentChange(it) },
+                value = contentFieldValue,
+                onValueChange = { newValue ->
+                    contentFieldValue = newValue
+                    viewModel.onContentChange(newValue.text)
+                },
                 placeholder = {
                     Text(
                         text = "Start typing your thoughts...",
@@ -290,6 +313,7 @@ fun NoteEditorScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                     )
                 },
+                visualTransformation = markdownTransformation,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onSurface,
                     lineHeight = 26.sp
@@ -306,18 +330,28 @@ fun NoteEditorScreen(
             Spacer(modifier = Modifier.height(80.dp))
         }
 
-        // Formatting Toolbar docked at bottom
+        // ── Formatting Toolbar docked at bottom ────────────────────────────────
         FormattingToolbar(
-            onBoldClick = { viewModel.onContentChange(uiState.content + " **bold** ") },
-            onItalicClick = { viewModel.onContentChange(uiState.content + " *italic* ") },
-            onBulletListClick = { viewModel.onContentChange(uiState.content + "\n• ") },
-            onChecklistClick = { viewModel.onContentChange(uiState.content + "\n☐ ") },
-            onHeadingClick = { viewModel.onContentChange(uiState.content + "\n### ") },
+            onBoldClick = {
+                contentFieldValue = viewModel.applyFormatting(contentFieldValue, FormatType.BOLD)
+            },
+            onItalicClick = {
+                contentFieldValue = viewModel.applyFormatting(contentFieldValue, FormatType.ITALIC)
+            },
+            onBulletListClick = {
+                contentFieldValue = viewModel.applyFormatting(contentFieldValue, FormatType.BULLET)
+            },
+            onChecklistClick = {
+                contentFieldValue = viewModel.applyFormatting(contentFieldValue, FormatType.CHECKLIST)
+            },
+            onHeadingClick = {
+                contentFieldValue = viewModel.applyFormatting(contentFieldValue, FormatType.HEADING)
+            },
             onAddTagClick = { showAddTagDialog = true }
         )
     }
 
-    // Folder Selector Bottom Sheet
+    // ── Folder Selector Bottom Sheet ───────────────────────────────────────────
     if (showFolderSheet) {
         ModalBottomSheet(
             onDismissRequest = { showFolderSheet = false },
@@ -339,7 +373,6 @@ fun NoteEditorScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // No folder option
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -395,7 +428,7 @@ fun NoteEditorScreen(
         }
     }
 
-    // Add Tag Dialog
+    // ── Add Tag Dialog ─────────────────────────────────────────────────────────
     if (showAddTagDialog) {
         AlertDialog(
             onDismissRequest = { showAddTagDialog = false },
@@ -437,7 +470,7 @@ fun NoteEditorScreen(
         )
     }
 
-    // Delete Confirmation Dialog
+    // ── Delete Confirmation Dialog ─────────────────────────────────────────────
     if (showDeleteConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmDialog = false },
