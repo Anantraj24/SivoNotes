@@ -23,9 +23,9 @@ import androidx.compose.ui.unit.sp
  * - ☐ and ☑ checklist markers are styled distinctly
  * - • bullet markers are highlighted with primary color
  *
- * Markdown syntax tokens (** , * , ## , ~~) are rendered with a soft, subtle color
- * so the formatted content stands out while keeping exact character offsets (OffsetMapping.Identity),
- * ensuring zero cursor drift, no IME lag, and 100% stable cursor placement.
+ * Markdown syntax tokens (**, *, ##, ~~) are rendered with [Color.Transparent]
+ * so they become invisible — only the formatted content is visible.
+ * OffsetMapping.Identity is preserved for zero cursor drift.
  */
 class MarkdownVisualTransformation(
     private val onSurfaceColor: Color,
@@ -47,11 +47,12 @@ class MarkdownVisualTransformation(
             val hashGroup = match.groups[1]!!
             val contentGroup = match.groups[2]!!
 
-            // Soft hash syntax
+            // Hidden hash syntax
             builder.addStyle(
                 style = SpanStyle(
-                    color = syntaxColor,
-                    fontWeight = FontWeight.Bold
+                    color = Color.Transparent,
+                    fontSize = 0.1.sp,
+                    fontWeight = FontWeight.Normal
                 ),
                 start = hashGroup.range.first,
                 end = hashGroup.range.last + 1
@@ -83,9 +84,9 @@ class MarkdownVisualTransformation(
             val end = match.range.last + 1
             val innerLen = end - start - 4
 
-            // Opening **
+            // Opening ** — hidden
             builder.addStyle(
-                style = SpanStyle(color = syntaxColor, fontSize = 12.sp, fontWeight = FontWeight.Normal),
+                style = SpanStyle(color = Color.Transparent, fontSize = 0.1.sp, fontWeight = FontWeight.Normal),
                 start = start,
                 end = start + 2
             )
@@ -98,9 +99,9 @@ class MarkdownVisualTransformation(
                 )
             }
 
-            // Closing **
+            // Closing ** — hidden
             builder.addStyle(
-                style = SpanStyle(color = syntaxColor, fontSize = 12.sp, fontWeight = FontWeight.Normal),
+                style = SpanStyle(color = Color.Transparent, fontSize = 0.1.sp, fontWeight = FontWeight.Normal),
                 start = end - 2,
                 end = end
             )
@@ -112,9 +113,9 @@ class MarkdownVisualTransformation(
             val start = match.range.first
             val end = match.range.last + 1
 
-            // Opening *
+            // Opening * — hidden
             builder.addStyle(
-                style = SpanStyle(color = syntaxColor, fontSize = 12.sp),
+                style = SpanStyle(color = Color.Transparent, fontSize = 0.1.sp),
                 start = start,
                 end = start + 1
             )
@@ -125,9 +126,9 @@ class MarkdownVisualTransformation(
                 end = end - 1
             )
 
-            // Closing *
+            // Closing * — hidden
             builder.addStyle(
-                style = SpanStyle(color = syntaxColor, fontSize = 12.sp),
+                style = SpanStyle(color = Color.Transparent, fontSize = 0.1.sp),
                 start = end - 1,
                 end = end
             )
@@ -141,7 +142,7 @@ class MarkdownVisualTransformation(
             val innerLen = end - start - 4
 
             builder.addStyle(
-                style = SpanStyle(color = syntaxColor, fontSize = 12.sp),
+                style = SpanStyle(color = Color.Transparent, fontSize = 0.1.sp),
                 start = start,
                 end = start + 2
             )
@@ -155,7 +156,7 @@ class MarkdownVisualTransformation(
             }
 
             builder.addStyle(
-                style = SpanStyle(color = syntaxColor, fontSize = 12.sp),
+                style = SpanStyle(color = Color.Transparent, fontSize = 0.1.sp),
                 start = end - 2,
                 end = end
             )
