@@ -71,13 +71,17 @@ object VaultCryptoEngine {
      * Decrypts formatted string: Base64(IV):Base64(CipherText) using AES-256-GCM.
      */
     fun decrypt(encryptedPayload: String, secretKey: SecretKey = getOrCreateMasterKey()): String {
-        if (encryptedPayload.isEmpty() || !encryptedPayload.contains(":")) return ""
+        if (encryptedPayload.isEmpty()) return ""
         try {
-            val parts = encryptedPayload.split(":")
-            if (parts.size != 2) return ""
+            // Split on the FIRST colon only — base64 chars don't include ':' but be safe
+            val colonIndex = encryptedPayload.indexOf(':')
+            if (colonIndex < 0) return ""
+            val ivPart = encryptedPayload.substring(0, colonIndex)
+            val cipherPart = encryptedPayload.substring(colonIndex + 1)
+            if (ivPart.isEmpty() || cipherPart.isEmpty()) return ""
 
-            val iv = Base64.getDecoder().decode(parts[0])
-            val cipherBytes = Base64.getDecoder().decode(parts[1])
+            val iv = Base64.getDecoder().decode(ivPart)
+            val cipherBytes = Base64.getDecoder().decode(cipherPart)
 
             val cipher = Cipher.getInstance(AES_MODE)
             val spec = GCMParameterSpec(GCM_TAG_LENGTH, iv)

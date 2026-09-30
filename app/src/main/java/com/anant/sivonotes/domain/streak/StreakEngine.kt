@@ -17,10 +17,18 @@ data class StreakStats(
 object StreakEngine {
 
     /**
-     * Converts a timestamp in millis to an epoch day integer (UTC/Local day number).
+     * Converts a timestamp in millis to a local-timezone epoch day integer.
+     * Uses local midnight to avoid UTC/IST mismatch (tasks done before 05:30 IST
+     * would otherwise land on the previous UTC day and break streaks).
      */
     fun toEpochDay(timestampMillis: Long): Long {
-        return TimeUnit.MILLISECONDS.toDays(timestampMillis)
+        val cal = Calendar.getInstance()
+        cal.timeInMillis = timestampMillis
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return TimeUnit.MILLISECONDS.toDays(cal.timeInMillis)
     }
 
     /**
@@ -88,9 +96,13 @@ object StreakEngine {
         val startOfWeekMillis = now.timeInMillis
 
         val weeklyTodos = allTodos.filter {
-            (it.dueDate != null && it.dueDate >= startOfWeekMillis) ||
-                    (it.completedAt != null && it.completedAt >= startOfWeekMillis)
-        }
+            // Only count todos that were due OR completed this week, but not both-or-neither
+            // A todo counts toward weeklyTotal if its dueDate is this week,
+            // OR it was completed this week (even if due date is different)
+            val dueThisWeek = it.dueDate != null && it.dueDate >= startOfWeekMillis
+            val completedThisWeek = it.completedAt != null && it.completedAt >= startOfWeekMillis
+            dueThisWeek || completedThisWeek
+        }.distinctBy { it.id }
         val weeklyCompleted = weeklyTodos.count { it.isCompleted }
         val weeklyTotal = weeklyTodos.size.coerceAtLeast(1)
         val weeklyRate = (weeklyCompleted.toFloat() / weeklyTotal.toFloat()).coerceIn(0f, 1f)

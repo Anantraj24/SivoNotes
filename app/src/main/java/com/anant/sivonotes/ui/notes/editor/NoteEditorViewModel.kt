@@ -12,6 +12,7 @@ import com.anant.sivonotes.data.repository.NotesRepository
 import com.anant.sivonotes.ui.notes.components.MarkdownFormatType
 import com.anant.sivonotes.ui.notes.components.MarkdownFormatter
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class NoteEditorUiState(
     val noteId: Long = 0,
@@ -160,6 +162,9 @@ class NoteEditorViewModel(
     }
 
     fun saveNoteDirect() {
+        // Cancel pending auto-save so there's no race between the debounced
+        // job and this immediate save when back is pressed.
+        autoSaveJob?.cancel()
         val state = _uiState.value
         if (state.title.isBlank() && state.content.isBlank() && state.noteId == 0L) {
             _uiState.value = state.copy(saveStatus = "Saved")
@@ -167,26 +172,30 @@ class NoteEditorViewModel(
         }
 
         viewModelScope.launch {
-            val noteEntity = NoteEntity(
-                id = state.noteId,
-                title = state.title.trim(),
-                content = state.content,
-                folderId = state.folderId,
-                isPinned = state.isPinned,
-                tags = state.tags,
-                colorHex = state.colorHex,
-                updatedAt = System.currentTimeMillis()
-            )
-
-            if (state.noteId == 0L) {
-                val newId = notesRepository.insertNote(noteEntity)
-                _uiState.value = _uiState.value.copy(
-                    noteId = newId,
-                    saveStatus = "Saved"
+            // NonCancellable ensures the DB write completes even if the ViewModel
+            // is cleared (e.g. user presses back) while this coroutine is running.
+            withContext(NonCancellable) {
+                val noteEntity = NoteEntity(
+                    id = state.noteId,
+                    title = state.title.trim(),
+                    content = state.content,
+                    folderId = state.folderId,
+                    isPinned = state.isPinned,
+                    tags = state.tags,
+                    colorHex = state.colorHex,
+                    updatedAt = System.currentTimeMillis()
                 )
-            } else {
-                notesRepository.updateNote(noteEntity)
-                _uiState.value = _uiState.value.copy(saveStatus = "Saved")
+
+                if (state.noteId == 0L) {
+                    val newId = notesRepository.insertNote(noteEntity)
+                    _uiState.value = _uiState.value.copy(
+                        noteId = newId,
+                        saveStatus = "Saved"
+                    )
+                } else {
+                    notesRepository.updateNote(noteEntity)
+                    _uiState.value = _uiState.value.copy(saveStatus = "Saved")
+                }
             }
         }
     }

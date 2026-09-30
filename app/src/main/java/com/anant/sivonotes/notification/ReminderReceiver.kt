@@ -60,13 +60,16 @@ class ReminderReceiver : BroadcastReceiver() {
             notificationManager.createNotificationChannel(channel)
         }
 
+        // Safe requestCode: mask Long to positive Int to avoid overflow collisions
+        val safeId = reminderId.and(0x7FFFFFFF).toInt()
+
         // Tap Intent -> Opens App
         val contentIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val contentPendingIntent = PendingIntent.getActivity(
             context,
-            reminderId.toInt(),
+            safeId,
             contentIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -78,7 +81,7 @@ class ReminderReceiver : BroadcastReceiver() {
         }
         val donePendingIntent = PendingIntent.getBroadcast(
             context,
-            (reminderId + 100000).toInt(),
+            (reminderId + 100000L).and(0x7FFFFFFF).toInt(),
             doneIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -92,7 +95,7 @@ class ReminderReceiver : BroadcastReceiver() {
         }
         val snoozePendingIntent = PendingIntent.getBroadcast(
             context,
-            (reminderId + 200000).toInt(),
+            (reminderId + 200000L).and(0x7FFFFFFF).toInt(),
             snoozeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -108,30 +111,36 @@ class ReminderReceiver : BroadcastReceiver() {
             .addAction(android.R.drawable.ic_menu_today, "Done", donePendingIntent)
             .addAction(android.R.drawable.ic_lock_idle_alarm, "Snooze 10m", snoozePendingIntent)
 
-        notificationManager.notify(reminderId.toInt(), builder.build())
+        notificationManager.notify(safeId, builder.build())
     }
 
     private fun dismissNotification(context: Context, reminderId: Long) {
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.cancel(reminderId.toInt())
+        notificationManager.cancel(reminderId.and(0x7FFFFFFF).toInt())
     }
 
     private fun markReminderComplete(context: Context, reminderId: Long) {
         if (reminderId <= 0) return
         val app = context.applicationContext as? SivoNotesApplication ?: return
+        // goAsync() keeps the BroadcastReceiver alive until the coroutine finishes,
+        // preventing Android from killing the process before the DB write completes.
+        val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
-            val reminder = app.container.remindersRepository.getReminderByIdDirect(reminderId)
-            if (reminder != null) {
-                if (reminder.repeatRule != "NEVER") {
-                    // Schedule next occurrence
-                    val nextTime = calculateNextOccurrence(reminder.targetTimeMillis, reminder.repeatRule)
-                    val nextReminder = reminder.copy(targetTimeMillis = nextTime)
-                    app.container.remindersRepository.updateReminder(nextReminder)
-                    AlarmScheduler.schedule(context, nextReminder)
-                } else {
-                    app.container.remindersRepository.markCompleted(reminder)
+            try {
+                val reminder = app.container.remindersRepository.getReminderByIdDirect(reminderId)
+                if (reminder != null) {
+                    if (reminder.repeatRule != "NEVER") {
+                        val nextTime = calculateNextOccurrence(reminder.targetTimeMillis, reminder.repeatRule)
+                        val nextReminder = reminder.copy(targetTimeMillis = nextTime)
+                        app.container.remindersRepository.updateReminder(nextReminder)
+                        AlarmScheduler.schedule(context, nextReminder)
+                    } else {
+                        app.container.remindersRepository.markCompleted(reminder)
+                    }
                 }
+            } finally {
+                pendingResult.finish()
             }
         }
     }
@@ -142,14 +151,32 @@ class ReminderReceiver : BroadcastReceiver() {
         title: String,
         note: String
     ) {
-        val snoozedTime = System.currentTimeMillis() + 10 * 60 * 1000 // 10 minutes later
-        val tempReminder = ReminderEntity(
-            id = reminderId,
-            title = title,
-            note = note,
-            targetTimeMillis = snoozedTime
-        )
-        AlarmScheduler.schedule(context, tempReminder)
+        val app = context.applicationContext as? SivoNotesApplication ?: return
+        val snoozedTime = System.currentTimeMillis() + 10 * 60 * 1000L // 10 minutes later
+        // goAsync() keeps the receiver alive until the DB write completes
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Fetch the real reminder from DB to preserve repeatRule and all fields
+                val original = app.container.remindersRepository.getReminderByIdDirect(reminderId)
+                val snoozedReminder = if (original != null) {
+                    original.copy(targetTimeMillis = snoozedTime)
+                } else {
+                    // Fallback if DB lookup fails (shouldn't happen)
+                    ReminderEntity(
+                        id = reminderId,
+                        title = title,
+                        note = note,
+                        targetTimeMillis = snoozedTime
+                    )
+                }
+                // Persist the new time so boot-reschedule picks it up
+                app.container.remindersRepository.updateReminder(snoozedReminder)
+                AlarmScheduler.schedule(context, snoozedReminder)
+            } finally {
+                pendingResult.finish()
+            }
+        }
     }
 
     companion object {
