@@ -5,12 +5,14 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.anant.sivonotes.data.local.dao.FocusSessionDao
 import com.anant.sivonotes.data.local.dao.FolderDao
 import com.anant.sivonotes.data.local.dao.ImportantPointDao
 import com.anant.sivonotes.data.local.dao.NoteDao
 import com.anant.sivonotes.data.local.dao.ReminderDao
 import com.anant.sivonotes.data.local.dao.TodoDao
 import com.anant.sivonotes.data.local.dao.VaultDao
+import com.anant.sivonotes.data.local.entity.FocusSessionEntity
 import com.anant.sivonotes.data.local.entity.FolderEntity
 import com.anant.sivonotes.data.local.entity.ImportantPointEntity
 import com.anant.sivonotes.data.local.entity.NoteEntity
@@ -27,9 +29,10 @@ import com.anant.sivonotes.data.local.entity.VaultEntryEntity
         TodoEntity::class,
         ReminderEntity::class,
         VaultEntryEntity::class,
-        PrivateNoteEntity::class
+        PrivateNoteEntity::class,
+        FocusSessionEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -41,6 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun todoDao(): TodoDao
     abstract fun reminderDao(): ReminderDao
     abstract fun vaultDao(): VaultDao
+    abstract fun focusSessionDao(): FocusSessionDao
 
     companion object {
         @Volatile

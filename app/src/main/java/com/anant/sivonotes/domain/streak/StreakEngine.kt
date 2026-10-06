@@ -1,5 +1,6 @@
 package com.anant.sivonotes.domain.streak
 
+import com.anant.sivonotes.data.local.entity.FocusSessionEntity
 import com.anant.sivonotes.data.local.entity.TodoEntity
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
@@ -11,7 +12,9 @@ data class StreakStats(
     val weeklyCompleted: Int = 0,
     val weeklyTotal: Int = 0,
     val weeklyCompletionRate: Float = 0f,
-    val activeDaysSet: Set<Long> = emptySet() // Set of Epoch Day numbers
+    val activeDaysSet: Set<Long> = emptySet(), // Set of Epoch Day numbers
+    val totalFocusSessions: Int = 0,
+    val totalFocusMinutes: Long = 0L
 )
 
 object StreakEngine {
@@ -32,13 +35,26 @@ object StreakEngine {
     }
 
     /**
-     * Calculates streak stats from all todos and completed history.
-     * Rule: Completing at least one task on a day makes that day an active streak day.
+     * Calculates streak stats from all todos and optional focus sessions.
+     * Rule: Completing at least one task OR one focus session on a day makes that day an active streak day.
      */
-    fun calculateStats(allTodos: List<TodoEntity>): StreakStats {
+    fun calculateStats(
+        allTodos: List<TodoEntity>,
+        focusSessions: List<FocusSessionEntity> = emptyList()
+    ): StreakStats {
         val completedTodos = allTodos.filter { it.isCompleted && it.completedAt != null }
-        if (completedTodos.isEmpty()) {
-            val totalInWeek = getTodosInCurrentWeek(allTodos).size
+        val completedSessions = focusSessions.filter { it.isCompleted && !it.isAbandoned && it.completedAt != null }
+
+        val totalFocusMinutes = completedSessions.sumOf { it.actualDurationMillis } / (1000 * 60)
+        val totalFocusSessions = completedSessions.size
+
+        val todoDays = completedTodos.map { toEpochDay(it.completedAt!!) }
+        val sessionDays = completedSessions.map { toEpochDay(it.completedAt!!) }
+        val activeDays = (todoDays + sessionDays).toSortedSet()
+
+        val totalInWeek = getTodosInCurrentWeek(allTodos).size
+
+        if (activeDays.isEmpty()) {
             return StreakStats(
                 currentStreak = 0,
                 bestStreak = 0,
@@ -46,13 +62,11 @@ object StreakEngine {
                 weeklyCompleted = 0,
                 weeklyTotal = totalInWeek,
                 weeklyCompletionRate = 0f,
-                activeDaysSet = emptySet()
+                activeDaysSet = emptySet(),
+                totalFocusSessions = totalFocusSessions,
+                totalFocusMinutes = totalFocusMinutes
             )
         }
-
-        val activeDays = completedTodos
-            .map { toEpochDay(it.completedAt!!) }
-            .toSortedSet()
 
         val todayEpochDay = toEpochDay(System.currentTimeMillis())
 
@@ -96,13 +110,11 @@ object StreakEngine {
         val startOfWeekMillis = now.timeInMillis
 
         val weeklyTodos = allTodos.filter {
-            // Only count todos that were due OR completed this week, but not both-or-neither
-            // A todo counts toward weeklyTotal if its dueDate is this week,
-            // OR it was completed this week (even if due date is different)
             val dueThisWeek = it.dueDate != null && it.dueDate >= startOfWeekMillis
             val completedThisWeek = it.completedAt != null && it.completedAt >= startOfWeekMillis
             dueThisWeek || completedThisWeek
         }.distinctBy { it.id }
+
         val weeklyCompleted = weeklyTodos.count { it.isCompleted }
         val weeklyTotal = weeklyTodos.size.coerceAtLeast(1)
         val weeklyRate = (weeklyCompleted.toFloat() / weeklyTotal.toFloat()).coerceIn(0f, 1f)
@@ -114,7 +126,9 @@ object StreakEngine {
             weeklyCompleted = weeklyCompleted,
             weeklyTotal = weeklyTotal,
             weeklyCompletionRate = weeklyRate,
-            activeDaysSet = activeDays
+            activeDaysSet = activeDays,
+            totalFocusSessions = totalFocusSessions,
+            totalFocusMinutes = totalFocusMinutes
         )
     }
 

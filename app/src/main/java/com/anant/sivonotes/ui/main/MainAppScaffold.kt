@@ -47,6 +47,7 @@ import com.anant.sivonotes.ui.settings.SettingsScreen
 import com.anant.sivonotes.ui.settings.SettingsViewModel
 import com.anant.sivonotes.ui.streak.StreakProgressScreen
 import com.anant.sivonotes.ui.streak.StreakProgressViewModel
+import com.anant.sivonotes.ui.timer.FocusTimerViewModel
 import com.anant.sivonotes.ui.todos.TodosScreen
 import com.anant.sivonotes.ui.todos.TodosViewModel
 import com.anant.sivonotes.ui.todos.components.CreateTodoDialog
@@ -179,8 +180,15 @@ fun MainAppScaffold() {
                         foldersRepository = container.foldersRepository
                     )
                 )
+                val timerViewModel: FocusTimerViewModel = viewModel(
+                    factory = FocusTimerViewModel.provideFactory(
+                        focusSessionRepository = container.focusSessionRepository,
+                        context = context
+                    )
+                )
                 TodosScreen(
                     viewModel = todosViewModel,
+                    timerViewModel = timerViewModel,
                     onNavigateToStreak = { navController.navigate(Screen.StreakProgress.route) }
                 )
             }
@@ -267,7 +275,8 @@ fun MainAppScaffold() {
             composable(Screen.StreakProgress.route) {
                 val streakViewModel: StreakProgressViewModel = viewModel(
                     factory = StreakProgressViewModel.provideFactory(
-                        todosRepository = container.todosRepository
+                        todosRepository = container.todosRepository,
+                        focusSessionRepository = container.focusSessionRepository
                     )
                 )
                 StreakProgressScreen(

@@ -55,18 +55,24 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.anant.sivonotes.data.local.entity.TodoEntity
 import com.anant.sivonotes.ui.components.EmptyState
+import com.anant.sivonotes.ui.timer.FocusTimerBottomSheet
+import com.anant.sivonotes.ui.timer.FocusTimerViewModel
+import androidx.compose.material3.ExperimentalMaterial3Api
 import com.anant.sivonotes.ui.todos.components.CreateTodoDialog
 import com.anant.sivonotes.ui.todos.components.TodoCard
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodosScreen(
     viewModel: TodosViewModel,
     onNavigateToStreak: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    timerViewModel: FocusTimerViewModel? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var todoToEdit by remember { mutableStateOf<TodoEntity?>(null) }
+    var showTimerSheet by remember { mutableStateOf(false) }
 
     val todayTotal = uiState.todayTodos.size + uiState.completedTodos.size
     val todayCompleted = uiState.completedTodos.size
@@ -307,7 +313,11 @@ fun TodosScreen(
                         folder = folder,
                         onToggleCompleted = { viewModel.toggleTodoCompleted(todo) },
                         onDelete = { viewModel.deleteTodo(todo) },
-                        onClick = { todoToEdit = todo }
+                        onClick = { todoToEdit = todo },
+                        onStartTimer = {
+                            timerViewModel?.selectTodo(todo)
+                            showTimerSheet = true
+                        }
                     )
                 }
             }
@@ -333,6 +343,14 @@ fun TodosScreen(
                 showCreateDialog = false
                 todoToEdit = null
             }
+        )
+    }
+
+    // Focus Timer Bottom Sheet
+    if (showTimerSheet && timerViewModel != null) {
+        FocusTimerBottomSheet(
+            viewModel = timerViewModel,
+            onDismissRequest = { showTimerSheet = false }
         )
     }
 }

@@ -39,6 +39,10 @@ class AppContainer(private val context: Context) {
         VaultRepository(database.vaultDao(), context)
     }
 
+    val focusSessionRepository: com.anant.sivonotes.data.repository.FocusSessionRepository by lazy {
+        com.anant.sivonotes.data.repository.FocusSessionRepository(database.focusSessionDao())
+    }
+
     val vaultManager: com.anant.sivonotes.security.VaultManager by lazy {
         com.anant.sivonotes.security.VaultManager(context)
     }
