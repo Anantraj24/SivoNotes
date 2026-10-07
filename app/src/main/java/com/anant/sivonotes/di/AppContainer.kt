@@ -1,13 +1,16 @@
 package com.anant.sivonotes.di
 
 import android.content.Context
+import com.anant.sivonotes.backup.BackupRestoreManager
 import com.anant.sivonotes.data.local.AppDatabase
+import com.anant.sivonotes.data.repository.FocusSessionRepository
 import com.anant.sivonotes.data.repository.FoldersRepository
 import com.anant.sivonotes.data.repository.ImportantPointsRepository
 import com.anant.sivonotes.data.repository.NotesRepository
 import com.anant.sivonotes.data.repository.RemindersRepository
 import com.anant.sivonotes.data.repository.TodosRepository
 import com.anant.sivonotes.data.repository.VaultRepository
+import com.anant.sivonotes.security.VaultManager
 
 class AppContainer(private val context: Context) {
 
@@ -39,15 +42,15 @@ class AppContainer(private val context: Context) {
         VaultRepository(database.vaultDao(), context)
     }
 
-    val focusSessionRepository: com.anant.sivonotes.data.repository.FocusSessionRepository by lazy {
-        com.anant.sivonotes.data.repository.FocusSessionRepository(database.focusSessionDao())
+    val focusSessionRepository: FocusSessionRepository by lazy {
+        FocusSessionRepository(database.focusSessionDao())
     }
 
-    val vaultManager: com.anant.sivonotes.security.VaultManager by lazy {
-        com.anant.sivonotes.security.VaultManager(context)
+    val vaultManager: VaultManager by lazy {
+        VaultManager(context)
     }
 
-    val backupRestoreManager: com.anant.sivonotes.backup.BackupRestoreManager by lazy {
-        com.anant.sivonotes.backup.BackupRestoreManager(context, database)
+    val backupRestoreManager: BackupRestoreManager by lazy {
+        BackupRestoreManager(context, database)
     }
 }

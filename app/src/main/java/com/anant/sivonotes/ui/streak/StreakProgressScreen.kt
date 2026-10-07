@@ -1,7 +1,9 @@
 package com.anant.sivonotes.ui.streak
 
+import android.content.res.Configuration
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,11 +44,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.anant.sivonotes.data.local.entity.FocusSessionEntity
 import com.anant.sivonotes.domain.streak.StreakEngine
+import com.anant.sivonotes.domain.streak.StreakStats
+import com.anant.sivonotes.ui.theme.SivoNotesTheme
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StreakProgressScreen(
     viewModel: StreakProgressViewModel,
@@ -54,7 +62,21 @@ fun StreakProgressScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    StreakProgressContent(
+        uiState = uiState,
+        onBack = onBack,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun StreakProgressContent(
+    uiState: StreakProgressUiState,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val stats = uiState.streakStats
+    val isDark = isSystemInDarkTheme()
 
     val animatedRate by animateFloatAsState(
         targetValue = stats.weeklyCompletionRate,
@@ -71,7 +93,6 @@ fun StreakProgressScreen(
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Top Navigation
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -79,7 +100,7 @@ fun StreakProgressScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = "Navigate back",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -94,13 +115,15 @@ fun StreakProgressScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Streak Hero Card
+        // Hero Card
+        val heroCardBg = if (isDark) Color(0xFF2E1C20) else Color(0xFFFFECEB)
+        val heroAccent = if (isDark) Color(0xFFFF7675) else Color(0xFFD63031)
+        val heroSubCardBg = if (isDark) MaterialTheme.colorScheme.surface.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.75f)
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFFECEB)
-            ),
+            colors = CardDefaults.cardColors(containerColor = heroCardBg),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
@@ -112,13 +135,13 @@ fun StreakProgressScreen(
                 Box(
                     modifier = Modifier
                         .size(64.dp)
-                        .background(Color(0xFFFF7675), CircleShape),
+                        .background(if (isDark) Color(0xFF5A2A2E) else Color(0xFFFF7675), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.LocalFireDepartment,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = if (isDark) Color(0xFFFFB4AB) else Color.White,
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -129,14 +152,14 @@ fun StreakProgressScreen(
                     text = "${stats.currentStreak} Days",
                     style = MaterialTheme.typography.displayLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFD63031)
+                    color = heroAccent
                 )
 
                 Text(
-                    text = if (stats.currentStreak > 0) "Current active streak! Keep it going!"
-                    else "Complete a task today to start your streak!",
+                    text = if (stats.currentStreak > 0) "Current active streak! Keep up the momentum!"
+                    else "Complete a task or focus timer today to start your streak!",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF636E72),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
                 )
 
@@ -145,7 +168,7 @@ fun StreakProgressScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White.copy(alpha = 0.7f), RoundedCornerShape(14.dp))
+                        .background(heroSubCardBg, RoundedCornerShape(14.dp))
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceAround,
                     verticalAlignment = Alignment.CenterVertically
@@ -154,7 +177,7 @@ fun StreakProgressScreen(
                         Text(
                             text = "Best Streak",
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFF636E72)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -177,20 +200,20 @@ fun StreakProgressScreen(
                         modifier = Modifier
                             .width(1.dp)
                             .height(28.dp)
-                            .background(Color(0xFFDFE6E9))
+                            .background(MaterialTheme.colorScheme.outlineVariant)
                     )
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = "Total Done",
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFF636E72)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Outlined.CheckCircle,
                                 contentDescription = null,
-                                tint = Color(0xFF00B894),
+                                tint = if (isDark) Color(0xFF34D399) else Color(0xFF059669),
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -288,7 +311,7 @@ fun StreakProgressScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Green squares show days where you completed tasks",
+                    text = "Green squares show days where you completed tasks or focus sessions",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -297,7 +320,6 @@ fun StreakProgressScreen(
 
                 val currentEpochDay = StreakEngine.toEpochDay(System.currentTimeMillis())
 
-                // 4 weeks x 7 days grid
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     for (week in 3 downTo 0) {
                         Row(
@@ -315,9 +337,9 @@ fun StreakProgressScreen(
                                         .size(36.dp)
                                         .background(
                                             color = when {
-                                                isActive -> Color(0xFF00B894)
-                                                isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                                else -> MaterialTheme.colorScheme.surfaceVariant
+                                                isActive -> if (isDark) Color(0xFF10B981) else Color(0xFF059669)
+                                                isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                                                else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isDark) 0.5f else 0.8f)
                                             },
                                             shape = RoundedCornerShape(8.dp)
                                         ),
@@ -383,7 +405,6 @@ fun StreakProgressScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Stats summary row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -448,11 +469,11 @@ fun StreakProgressScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    val dateFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         uiState.recentFocusSessions.forEach { session ->
                             val mins = ((session.actualDurationMillis / (1000 * 60)).toInt()).coerceAtLeast(1)
-                            val dateStr = java.text.SimpleDateFormat("MMM d, h:mm a", java.util.Locale.getDefault())
-                                .format(java.util.Date(session.completedAt ?: session.startedAt))
+                            val dateStr = dateFormat.format(Date(session.completedAt ?: session.startedAt))
 
                             Row(
                                 modifier = Modifier
@@ -484,7 +505,7 @@ fun StreakProgressScreen(
                                     text = "$mins min",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF00B894)
+                                    color = if (isDark) Color(0xFF34D399) else Color(0xFF059669)
                                 )
                             }
                         }
@@ -494,5 +515,54 @@ fun StreakProgressScreen(
         }
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+@Preview(name = "Light Mode", showBackground = true)
+@Preview(name = "Dark Mode", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun StreakProgressScreenPreview() {
+    SivoNotesTheme {
+        StreakProgressContent(
+            uiState = StreakProgressUiState(
+                streakStats = StreakStats(
+                    currentStreak = 4,
+                    bestStreak = 12,
+                    totalCompleted = 28,
+                    weeklyCompleted = 6,
+                    weeklyTotal = 8,
+                    weeklyCompletionRate = 0.75f,
+                    activeDaysSet = setOf(
+                        StreakEngine.toEpochDay(System.currentTimeMillis()),
+                        StreakEngine.toEpochDay(System.currentTimeMillis()) - 1,
+                        StreakEngine.toEpochDay(System.currentTimeMillis()) - 2,
+                        StreakEngine.toEpochDay(System.currentTimeMillis()) - 3
+                    ),
+                    totalFocusSessions = 5,
+                    totalFocusMinutes = 110L
+                ),
+                recentFocusSessions = listOf(
+                    FocusSessionEntity(
+                        id = 1L,
+                        todoTitle = "Complete Android Architecture review",
+                        targetDurationMillis = 25 * 60 * 1000L,
+                        actualDurationMillis = 25 * 60 * 1000L,
+                        startedAt = System.currentTimeMillis() - 3600000L,
+                        completedAt = System.currentTimeMillis() - 2100000L,
+                        isCompleted = true
+                    ),
+                    FocusSessionEntity(
+                        id = 2L,
+                        todoTitle = "Design token integration",
+                        targetDurationMillis = 15 * 60 * 1000L,
+                        actualDurationMillis = 15 * 60 * 1000L,
+                        startedAt = System.currentTimeMillis() - 7200000L,
+                        completedAt = System.currentTimeMillis() - 6300000L,
+                        isCompleted = true
+                    )
+                )
+            ),
+            onBack = {}
+        )
     }
 }
